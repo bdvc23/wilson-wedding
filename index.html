@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Share the Love &mdash; Brett &amp; Clara</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Great+Vibes&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: #fff;
+      color: #000;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      min-height: 100vh;
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+    }
+    .card {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      border: 1px solid #000;
+      padding: 3rem 1.75rem 2rem;
+      text-align: center;
+    }
+    /* Reserved for future floral SVG artwork — intentionally empty for now. */
+    #corner-art-top-left,
+    #corner-art-bottom-right {
+      position: absolute;
+      width: 96px;
+      height: 96px;
+      pointer-events: none;
+    }
+    #corner-art-top-left { top: 0; left: 0; }
+    #corner-art-bottom-right { bottom: 0; right: 0; }
+    .title {
+      margin: 0;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .title .serif {
+      display: block;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 2.75rem;
+      letter-spacing: 0.32em;
+      margin-right: -0.32em; /* letter-spacing adds a trailing gap; pull it back so the word stays centered */
+    }
+    .title .script {
+      display: block;
+      font-family: 'Great Vibes', cursive;
+      font-weight: 400;
+      font-size: 2.4rem;
+      margin: -0.5rem 0 -0.3rem;
+    }
+    .subhead {
+      font-variant: small-caps;
+      letter-spacing: 0.08em;
+      font-size: 1.05rem;
+      margin: 1.2rem 0 1.8rem;
+    }
+    #guest-name {
+      width: 100%;
+      border: 1px solid #000;
+      border-radius: 0;
+      background: #fff;
+      color: #000;
+      font-family: inherit;
+      font-size: 1.05rem; /* at least 16px so iOS Safari does not zoom on focus */
+      padding: 0.85rem 0.9rem;
+      text-align: center;
+    }
+    #guest-name::placeholder { color: #000; opacity: 0.5; }
+    #upload-button {
+      width: 100%;
+      margin-top: 0.9rem;
+      background: #000;
+      color: #fff;
+      border: 1px solid #000;
+      border-radius: 0;
+      font-family: inherit;
+      font-size: 1.15rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 1.05rem 1rem;
+      min-height: 56px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #upload-list {
+      list-style: none;
+      margin: 1.5rem 0 0;
+      padding: 0;
+      text-align: left;
+    }
+    .upload-row {
+      padding: 0.7rem 0.1rem;
+      border-top: 1px solid #000;
+    }
+    .row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.75rem;
+      font-size: 1rem;
+    }
+    .filename {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status {
+      white-space: nowrap;
+      font-variant: small-caps;
+      letter-spacing: 0.04em;
+    }
+    .bar {
+      margin-top: 0.45rem;
+      height: 6px;
+      border: 1px solid #000;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #000;
+      transition: width 0.2s linear;
+    }
+    .upload-row[data-state="failed"] { cursor: pointer; }
+    .upload-row[data-state="failed"] .status { color: #c00; }
+    .footer {
+      margin: 2.25rem 0 0;
+      font-variant: small-caps;
+      letter-spacing: 0.14em;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <!-- Reserved for future floral SVG artwork (top-left corner). Leave empty. -->
+    <div id="corner-art-top-left" aria-hidden="true"></div>
+    <!-- Reserved for future floral SVG artwork (bottom-right corner). Leave empty. -->
+    <div id="corner-art-bottom-right" aria-hidden="true"></div>
+
+    <h1 class="title">
+      <span class="serif">SHARE</span>
+      <span class="script">the</span>
+      <span class="serif">LOVE</span>
+    </h1>
+    <p class="subhead">Scan, snap, and share your photos &amp; videos with us!</p>
+
+    <form id="upload-form" onsubmit="return false">
+      <input type="text" id="guest-name" placeholder="Your name (optional)" aria-label="Your name (optional)" autocomplete="name">
+      <button type="button" id="upload-button">Upload Photos &amp; Videos</button>
+      <input type="file" id="file-input" multiple accept="image/*,video/*" hidden>
+    </form>
+
+    <ul id="upload-list" aria-live="polite"></ul>
+
+    <p class="footer">#TheWilsons &mdash; Brett &amp; Clara &mdash; 07.18.26</p>
+  </main>
+
+  <script>
+    // =================================================================
+    // CONFIG — paste the Apps Script Web App URL (it ends in /exec)
+    // from README Phase 2 between the quotes below.
+    // =================================================================
+    const APPS_SCRIPT_URL = "PASTE_WEB_APP_URL_HERE";
+
+    // 8 MiB per chunk — must be a multiple of 262144 bytes (256 KiB)
+    // per the Google Drive resumable upload API.
+    const CHUNK_SIZE = 8388608;
+    // Venue cellular can drop out for a minute at a time, so the retry
+    // budget is deep: up to 8 attempts per chunk, backing off
+    // 1s, 2s, 4s, 8s, 16s, 30s, 30s, 30s (~2 minutes total), waking
+    // early when the browser reports the network is back.
+    const MAX_CHUNK_RETRIES = 8;
+    const MAX_BACKOFF_MS = 30000;
+    // A PUT that stalls without erroring is aborted and retried.
+    const CHUNK_TIMEOUT_MS = 300000;
+
+    const guestNameInput = document.getElementById('guest-name');
+    const uploadButton = document.getElementById('upload-button');
+    const fileInput = document.getElementById('file-input');
+    const uploadList = document.getElementById('upload-list');
+
+    const queue = [];
+    let busy = false;
+    // row element → resumable session URI, so a tapped retry resumes from
+    // the bytes Drive already has instead of starting over from zero.
+    const sessions = new WeakMap();
+
+    uploadButton.addEventListener('click', function () { fileInput.click(); });
+
+    fileInput.addEventListener('change', function () {
+      Array.prototype.slice.call(fileInput.files).forEach(function (file) {
+        enqueue(file, createRow(file));
+      });
+      fileInput.value = ''; // so picking the same file again still fires "change"
+    });
+
+    // Warn before leaving the page while uploads are still running.
+    window.addEventListener('beforeunload', function (e) {
+      if (busy) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    function createRow(file) {
+      const li = document.createElement('li');
+      li.className = 'upload-row';
+
+      const top = document.createElement('div');
+      top.className = 'row-top';
+      const name = document.createElement('span');
+      name.className = 'filename';
+      name.textContent = file.name;
+      const status = document.createElement('span');
+      status.className = 'status';
+      top.appendChild(name);
+      top.appendChild(status);
+
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      const fill = document.createElement('div');
+      fill.className = 'bar-fill';
+      bar.appendChild(fill);
+
+      li.appendChild(top);
+      li.appendChild(bar);
+      uploadList.appendChild(li);
+
+      // A failed file can be retried with a tap — no need to re-select it.
+      li.addEventListener('click', function () {
+        if (li.dataset.state === 'failed') enqueue(file, li);
+      });
+
+      return li;
+    }
+
+    function setRow(row, state, text) {
+      row.dataset.state = state;
+      row.querySelector('.status').textContent = text;
+    }
+
+    function setBar(row, fraction) {
+      row.querySelector('.bar-fill').style.width = (fraction * 100).toFixed(1) + '%';
+    }
+
+    function showProgress(row, sent, total) {
+      setRow(row, 'uploading', Math.floor((sent / total) * 100) + '%');
+      setBar(row, sent / total);
+    }
+
+    function enqueue(file, row) {
+      setRow(row, 'queued', 'Waiting…');
+      setBar(row, 0);
+      queue.push({ file: file, row: row });
+      pump();
+    }
+
+    // Upload one file at a time — kinder to cellular connections.
+    async function pump() {
+      if (busy) return;
+      busy = true;
+      while (queue.length > 0) {
+        const job = queue.shift();
+        try {
+          await uploadFile(job.file, job.row);
+          sessions.delete(job.row);
+          setRow(job.row, 'done', '✓ Done!');
+          setBar(job.row, 1);
+        } catch (err) {
+          console.error('Upload failed:', job.file.name, err);
+          setRow(job.row, 'failed', 'Failed — tap to retry');
+        }
+      }
+      busy = false;
+    }
+
+    async function uploadFile(file, row) {
+      if (APPS_SCRIPT_URL.indexOf('PASTE_') === 0) {
+        throw new Error('APPS_SCRIPT_URL has not been configured yet');
+      }
+      if (file.size === 0) throw new Error('File is empty');
+
+      setRow(row, 'uploading', '0%');
+
+      // A tapped retry reuses the previous attempt's session if Drive
+      // still has it — the bytes that already made it up are not re-sent.
+      let sessionUri = sessions.get(row) || null;
+      let offset = 0;
+      if (sessionUri) {
+        try {
+          offset = await probeStatus(sessionUri, file.size);
+          showProgress(row, offset, file.size);
+        } catch (err) {
+          sessionUri = null; // session expired or unreachable — start over
+          offset = 0;
+        }
+      }
+      if (!sessionUri) {
+        sessionUri = await openSession(file);
+        sessions.set(row, sessionUri);
+      }
+      if (offset >= file.size) return; // everything already landed
+
+      await uploadChunks(sessionUri, file, row, offset);
+    }
+
+    // Step 1: ask the Apps Script broker to open a resumable upload
+    // session. Content-Type text/plain keeps this a "simple" CORS
+    // request — no preflight, which Apps Script cannot answer.
+    async function openSession(file) {
+      const initRes = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          size: file.size,
+          guestName: guestNameInput.value.trim()
+        })
+      });
+      if (!initRes.ok) {
+        throw new Error('Session request failed: HTTP ' + initRes.status);
+      }
+      const init = await initRes.json();
+      if (!init.sessionUri) {
+        throw new Error(init.error || 'Broker returned no session URI');
+      }
+      return init.sessionUri;
+    }
+
+    // Step 2: PUT the file to the session URI in 8 MiB chunks. After a
+    // failure, wait out the backoff (or until the network comes back),
+    // then ask Drive how many bytes actually arrived and resume from
+    // there instead of blindly re-sending the whole chunk.
+    async function uploadChunks(sessionUri, file, row, startOffset) {
+      let offset = startOffset;
+      let attempt = 0;
+      while (offset < file.size) {
+        const end = Math.min(offset + CHUNK_SIZE, file.size);
+        try {
+          offset = await putChunk(sessionUri, file, offset, end, row);
+          attempt = 0; // a chunk landed — reset the retry budget
+        } catch (err) {
+          if (attempt >= MAX_CHUNK_RETRIES) throw err;
+          await waitBeforeRetry(Math.min(1000 * Math.pow(2, attempt), MAX_BACKOFF_MS));
+          attempt++;
+          try {
+            offset = await probeStatus(sessionUri, file.size);
+            showProgress(row, offset, file.size);
+          } catch (probeErr) {
+            // Still offline (or the session died) — the next PUT will
+            // surface it and burn another retry.
+          }
+        }
+      }
+    }
+
+    function putChunk(sessionUri, file, start, end, row) {
+      return new Promise(function (resolve, reject) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', sessionUri);
+        xhr.timeout = CHUNK_TIMEOUT_MS; // a stalled PUT aborts and retries instead of hanging the queue
+        xhr.setRequestHeader('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + file.size);
+        xhr.upload.onprogress = function (ev) {
+          if (ev.lengthComputable) {
+            showProgress(row, Math.min(start + ev.loaded, file.size), file.size);
+          }
+        };
+        xhr.onload = function () {
+          if (xhr.status === 200 || xhr.status === 201) {
+            resolve(file.size); // whole file received
+          } else if (xhr.status === 308) {
+            // 308 = chunk accepted, Drive expects more. Its Range header
+            // says exactly how many bytes landed; if the browser cannot
+            // read it, assume the whole chunk landed.
+            const range = xhr.getResponseHeader('Range');
+            const match = range && range.match(/-(\d+)$/);
+            const next = match ? Number(match[1]) + 1 : end;
+            if (next <= start) {
+              reject(new Error('Drive reported no progress for this chunk'));
+            } else {
+              resolve(next);
+            }
+          } else {
+            reject(new Error('Chunk upload failed: HTTP ' + xhr.status));
+          }
+        };
+        xhr.onerror = function () { reject(new Error('Network error while uploading chunk')); };
+        xhr.ontimeout = function () { reject(new Error('Timed out while uploading chunk')); };
+        xhr.send(file.slice(start, end));
+      });
+    }
+
+    // Asks Drive how much of the file this session already holds.
+    // Resolves with the next byte offset to send (file.size = complete);
+    // rejects if the session is gone or the network is still down.
+    function probeStatus(sessionUri, total) {
+      return new Promise(function (resolve, reject) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', sessionUri);
+        xhr.timeout = 30000;
+        xhr.setRequestHeader('Content-Range', 'bytes */' + total);
+        xhr.onload = function () {
+          if (xhr.status === 200 || xhr.status === 201) {
+            resolve(total); // upload already finished
+          } else if (xhr.status === 308) {
+            const range = xhr.getResponseHeader('Range'); // "bytes=0-N"
+            const match = range && range.match(/-(\d+)$/);
+            resolve(match ? Number(match[1]) + 1 : 0); // no Range header = nothing committed yet
+          } else {
+            reject(new Error('Upload session is no longer valid: HTTP ' + xhr.status));
+          }
+        };
+        xhr.onerror = function () { reject(new Error('Network error while checking upload status')); };
+        xhr.ontimeout = function () { reject(new Error('Timed out while checking upload status')); };
+        xhr.send();
+      });
+    }
+
+    // Sleep for ms, but wake immediately if the browser reports the
+    // network came back so the retry doesn't sit out a long backoff.
+    function waitBeforeRetry(ms) {
+      return new Promise(function (resolve) {
+        const timer = setTimeout(done, ms);
+        function done() {
+          clearTimeout(timer);
+          window.removeEventListener('online', done);
+          resolve();
+        }
+        window.addEventListener('online', done);
+      });
+    }
+  </script>
+</body>
+</html>
